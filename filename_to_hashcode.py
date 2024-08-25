@@ -44,13 +44,13 @@ def count_files(path: str) -> int:
 
 def files_rename_executor(path: str) -> None:
     if isinstance(path, str) and os.path.isdir(path) and path != '':
-        for dirpath, _, filenames in os.walk(path):
+        for dir_path, _, filenames in os.walk(path):
             for filename in filenames:
-                file_path = os.path.join(dirpath, filename)
+                file_path = os.path.join(dir_path, filename)
                 new_file_name = get_file_hashcode(file_path) + os.path.splitext(filename)[1]
-                new_path = os.path.join(dirpath, new_file_name)
+                new_path = os.path.join(dir_path, new_file_name)
                 if os.path.exists(new_path):
-                    new_path = os.path.join(dirpath, get_current_time_hashcode() + os.path.splitext(filename)[1])
+                    new_path = os.path.join(dir_path, get_current_time_hashcode() + os.path.splitext(filename)[1])
                 try:
                     os.rename(file_path, new_path)
                 except OSError:
