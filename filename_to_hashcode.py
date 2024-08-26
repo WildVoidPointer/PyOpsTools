@@ -8,16 +8,16 @@ import os
 
 
 def get_file_hashcode(path: str, hash_type: str = 'sha1') -> str | None:
-    if isinstance(path, str) and os.path.isfile(path) and isinstance(hash_type, str) \
-            and path != '' and hash_type != '':
-        file_meta_hash = hashlib.new(hash_type)
-        file_size: int = os.path.getsize(path)
-        file_changed_time: str = time.strftime('%Y-%m-%d %H:%M:%S', 
-                                               time.localtime(os.path.getmtime(path)))
-        chunk_data: str = str(file_size) + file_changed_time
-        file_meta_hash.update(chunk_data.encode('utf-8'))
-        return file_meta_hash.hexdigest().lower()
-    return None
+    if not isinstance(path, str) or not os.path.isfile(path) or not isinstance(hash_type, str) \
+            or path == '' or hash_type == '':
+        return None
+    file_meta_hash = hashlib.new(hash_type)
+    file_size: int = os.path.getsize(path)
+    file_changed_time: str = time.strftime('%Y-%m-%d %H:%M:%S', 
+                                            time.localtime(os.path.getmtime(path)))
+    chunk_data: str = str(file_size) + file_changed_time
+    file_meta_hash.update(chunk_data.encode('utf-8'))
+    return file_meta_hash.hexdigest().lower()
 
 
 def generate_salt(length: int = 16) -> str:
@@ -47,21 +47,26 @@ def files_rename_executor(path: str) -> None:
         for dir_path, _, filenames in os.walk(path):
             for filename in filenames:
                 file_path = os.path.join(dir_path, filename)
-                new_file_name = get_file_hashcode(file_path) + os.path.splitext(filename)[1]
+                __get_hashcode_res: str | None = get_file_hashcode(file_path)
+                if __get_hashcode_res is not None:
+                    new_file_name = __get_hashcode_res + os.path.splitext(filename)[1]
+                else: 
+                    continue
                 new_path = os.path.join(dir_path, new_file_name)
+
                 if os.path.exists(new_path):
                     new_path = os.path.join(dir_path, get_current_time_hashcode() + os.path.splitext(filename)[1])
                 try:
                     os.rename(file_path, new_path)
                 except OSError:
-                    print(f"    Error renaming file {file_path} \n      to {new_path}")
-        print("    Succeeded in batch renaming hashcode")
+                    print(f"    \033[31mError renaming file {file_path} \n      to {new_path}\033[0m")
+        print("    \033[32mSucceeded in batch renaming hashcode\033[0m")
 
 
 if __name__ == "__main__":
     start_time: float = time.time()
     if len(sys.argv) < 2:
-        print("    Usage: python script.py <directory_path>")
+        print("    \033[31mUsage: python script.py <directory_path>[0m")
         sys.exit(1)
 
     path: str = sys.argv[1]
