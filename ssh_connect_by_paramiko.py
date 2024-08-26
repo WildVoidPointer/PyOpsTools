@@ -13,11 +13,14 @@ def ssh_task_executor(hostname: str, port: int,
     client = SSHClient()
     client.set_missing_host_key_policy(AutoAddPolicy())
     try:
-        client.connect(hostname, port, username, password)
-        stdin, stdout, stderr = client.exec_command(command)
+        client.connect(hostname, port, username, password)  # Connect to the ssh client
+        stdin, stdout, stderr = client.exec_command(command)    # executive command
+
+        # Wait for data return
         stdout.channel.recv_exit_status()
         stderr.channel.recv_exit_status()
 
+        # Reads binary data and converts it to a string
         stdout_output = stdout.read().decode('utf-8').strip()
         stderr_output = stderr.read().decode('utf-8').strip()
 
