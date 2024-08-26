@@ -2,10 +2,10 @@ from typing import Final
 from paramiko import SSHClient, AutoAddPolicy, SSHException
 
 class RemoteHostInformations:
-    hostname: Final[str] = '192.168.179.130'
+    hostname: Final[str] = ''
     port: Final[int] = 22
-    username: Final[str] = 'dev'
-    password: Final[str] = '123456'
+    username: Final[str] = ''
+    password: Final[str] = ''
 
 
 def ssh_sftp_executor(hostname: str, port: int, username: str, password: str, 
