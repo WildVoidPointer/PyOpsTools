@@ -22,7 +22,7 @@ class FnameToHashRuntimeStatus:
         return (
             f"    {datetime.now()} - INFO: "
             f"\033[32m{op_s_count}\033[0m files were renamed successfully."
-            f"  \033[31m{op_f_count}\033[0m 32 files failed to be renamed."
+            f"  \033[31m{op_f_count}\033[0m files failed to be renamed."
         )
 
     @staticmethod
