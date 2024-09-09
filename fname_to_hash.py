@@ -20,9 +20,8 @@ class FnameToHashRuntimeStatus:
     @staticmethod
     def get_op_result_message(op_s_count: int = 0, op_f_count: int = 0) -> str:
         return (
-            f"    {datetime.now()} - INFO: "
-            f"\033[32m{op_s_count}\033[0m files were renamed successfully."
-            f"  \033[31m{op_f_count}\033[0m files failed to be renamed."
+            f"    {datetime.now()} - INFO: \033[32m{op_s_count}\033[0m files were renamed successfully.\n"
+            f"    {datetime.now()} - INFO: \033[31m{op_f_count}\033[0m files failed to be renamed."
         )
 
     @staticmethod
