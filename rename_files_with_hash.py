@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from datetime import datetime
+from typing import Optional
 import hashlib
 import secrets
 import time
@@ -11,29 +12,29 @@ class FnameToHashRuntimeStatus:
     """Provides a series of static methods to highlight run-time status with simple logs"""
     @staticmethod
     def get_error_message(location: str = "") -> str:
-        return f"    \033[31m{datetime.now()} - ERROR: {location} \033[0m"
+        return f"\033[31m{datetime.now()} - ERROR: {location} \033[0m"
     
     @staticmethod
     def get_files_counter_message(count: int = 0) -> str:
-        return f"    {datetime.now()} - INFO: \033[33m{count}\033[0m files have been scanned."
+        return f"{datetime.now()} - INFO: \033[33m{count}\033[0m files have been scanned."
     
     @staticmethod
     def get_op_result_message(op_s_count: int = 0, op_f_count: int = 0) -> str:
         return (
-            f"    {datetime.now()} - INFO: \033[32m{op_s_count}\033[0m files were renamed successfully.\n"
-            f"    {datetime.now()} - INFO: \033[31m{op_f_count}\033[0m files failed to be renamed."
+            f"{datetime.now()} - INFO: \033[32m{op_s_count}\033[0m files were renamed successfully.\n"
+            f"{datetime.now()} - INFO: \033[31m{op_f_count}\033[0m files failed to be renamed."
         )
 
     @staticmethod
-    def print_file_from_iterable(iter_obj: Iterable) -> None:
-        if not isinstance(iter_obj, Iterable):
+    def get_rename_failed_files(files: Iterable[str]) -> None:
+        if not isinstance(files, Iterable):
             return
-        for i in iter_obj:
-            print(f"    {i}")
+        print("\033[31mRenameFailedList:\033[0m")
+        for file in files:
+            print(f"    {file}")
 
 
-
-def get_all_files_to_tuple(dirpath: str) -> tuple[str]:
+def get_all_files_to_tuple(dirpath: str) -> tuple[str, ...]:
     """Extract all files from the specified path.
 
     Args:
@@ -43,12 +44,13 @@ def get_all_files_to_tuple(dirpath: str) -> tuple[str]:
         Returns a tuple of all files
     
     Raises:
-        Raises ValueError if the passed argument is invalid
+        Raises `ValueError` if the passed argument is invalid
     """
-    if not is_effective_string(dirpath) or not os.path.isdir(dirpath):
-        raise ValueError(f"    The method {__name__} parameter is invalid")
+    if not is_effective_string(dirpath) or not os.path.isdir(dirpath) or \
+        not os.access(dirpath, os.X_OK | os.R_OK | os.W_OK):
+        raise ValueError(f"The method {__name__} parameter is invalid")
     
-    files_list: list = []
+    files_list: list[str] = []
     for dirpath, _, filenames in os.walk(dirpath):
         for filename in filenames:
             filepath = os.path.join(dirpath, filename)
@@ -57,9 +59,9 @@ def get_all_files_to_tuple(dirpath: str) -> tuple[str]:
     return tuple(files_list)
 
 
-def is_effective_string(context) -> bool:
+def is_effective_string(string: str) -> bool:
     """Determine string validity"""
-    return isinstance(context, str) and context != ""
+    return isinstance(string, str) and string != ""
 
 
 def get_current_timestamp() -> str:
@@ -107,7 +109,7 @@ def get_current_file_hashcode(
         Returns a hashcode string of 40 length (sha1)
     
     Raises:
-        Raises ValueError if the passed argument is invalid or 
+        Raises `ValueError` if the passed argument is invalid or 
         the hash encryption type is not supported
     """
     
@@ -116,7 +118,7 @@ def get_current_file_hashcode(
         not is_effective_string(random_salt) or not is_effective_string(hash_type) or
         not os.path.isfile(fpath)
         ):
-        raise ValueError(f"    The method {__name__} parameter is invalid")
+        raise ValueError(f"The method {__name__} parameter is invalid")
     
     file_hash = hashlib.new(hash_type)
     chunk_data = fpath + timestamp + random_salt
@@ -135,7 +137,7 @@ def set_filename_to_hashcode(fpath: str, hashcode: str) -> bool:
         Returns a Boolean value indicating execution
     
     Raises:
-        Raises ValueError if the passed argument is invalid 
+        None 
     """
 
     if (
@@ -178,15 +180,16 @@ def rename_operation_executor(dirpath: str) -> tuple[int, int, int, tuple[str, .
     if not is_effective_string(dirpath) or not os.path.isdir(dirpath):
 
         print(
-            FnameToHashRuntimeStatus.get_error_message(f"    The method {__name__} parameter is invalid")
+            FnameToHashRuntimeStatus.get_error_message(f"The method {__name__} parameter is invalid")
         )
         return 0, 0, 0, tuple()
     
-    fpaths: tuple
+    fpaths: Optional[tuple[str, ...]] = None
     try: 
         fpaths = get_all_files_to_tuple(dirpath)
     except ValueError as e:
         print(FnameToHashRuntimeStatus.get_error_message(str(e)))
+        sys.exit(1)
 
     op_success_count: int = 0
     op_failure_count: int = 0
@@ -215,8 +218,9 @@ def rename_operation_executor(dirpath: str) -> tuple[int, int, int, tuple[str, .
 
 
 if __name__ == "__main__":
+
     if len(sys.argv) < 2:
-        print("    \033[31mUsage: python script.py <directory_path>. \033[0m")
+        print("\033[31mUsage: python script.py <directory_path>. \033[0m")
         sys.exit(1)
 
     start_time: float = time.time()
@@ -225,6 +229,6 @@ if __name__ == "__main__":
     _scan_fcount, _op_s, _op_f, _op_f_files = rename_operation_executor(dirpath=dirpath)
     print(FnameToHashRuntimeStatus.get_files_counter_message(_scan_fcount))
     print(FnameToHashRuntimeStatus.get_op_result_message(_op_s, _op_f))
-    FnameToHashRuntimeStatus.print_file_from_iterable(_op_f_files)
-    print(f"    Running time: \033[33m{time.time()-start_time}\033[0ms")
-    print(f"    \033[32mComplete !\033[0m")
+    FnameToHashRuntimeStatus.get_rename_failed_files(_op_f_files)
+    print(f"Running time: \033[33m{time.time()-start_time}\033[0ms")
+    print(f"\033[32mComplete !\n\033[0m")
