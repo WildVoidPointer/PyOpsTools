@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from datetime import datetime
 from typing import Optional
 import hashlib
@@ -26,8 +25,8 @@ class FnameToHashRuntimeStatus:
         )
 
     @staticmethod
-    def get_rename_failed_files(files: Iterable[str]) -> None:
-        if not isinstance(files, Iterable):
+    def get_rename_failed_files(files: tuple[str, ...]) -> None:
+        if not isinstance(files, tuple) or len(files) == 0:
             return
         print("\033[31mRenameFailedList:\033[0m")
         for file in files:
