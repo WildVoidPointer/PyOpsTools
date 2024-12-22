@@ -109,14 +109,11 @@ def _move_apple_double_files(root_path: str, adfiles: tuple[str, ...],
         return tuple(_not_moved_files)
 
 
-def apple_double_files_cleaner(dirpath: str,
-                               is_default_target: bool = True,
-                               target: str | None = None
-                            ) -> None:
+def apple_double_files_cleaner(dirpath: str, target: str | None = None) -> None:
     apple_double_files: tuple[str, ...] = _collect_apple_double_files(dirpath)
     move_res: tuple[str, ...] | None  = None
 
-    if not is_default_target and target != None:
+    if target is not None:
         move_res = _move_apple_double_files(dirpath, apple_double_files, target)
     else:   
         move_res = _move_apple_double_files(dirpath, apple_double_files)
