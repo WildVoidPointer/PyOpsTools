@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from datetime import datetime
+from typing import Optional
 import shutil
 import sys
 import os
@@ -60,8 +61,7 @@ def _collect_apple_double_files(path: str) -> tuple[str, ...]:
 
 
 def _move_apple_double_files(root_path: str, adfiles: tuple[str, ...],
-                             is_default_target: bool = True,
-                             mv_target: str = 'AppleDoubleFiles') -> tuple[str, ...] | None:
+                             mv_target: Optional[str] = None) -> tuple[str, ...] | None:
     
     if not _is_effective_dirpath(root_path) or not isinstance(adfiles, tuple):
         print(
@@ -73,11 +73,7 @@ def _move_apple_double_files(root_path: str, adfiles: tuple[str, ...],
 
     root_path = os.path.abspath(root_path)
     
-    if is_default_target:
-        mv_target = mv_target + "-" + datetime.now().strftime(r"%Y-%m-%d-%H-%M-%S-%f")
-        _mv_target: str = os.path.join(root_path, mv_target)
-
-    else:
+    if mv_target is not None:
         if not _is_effective_dirpath(mv_target):
             print(
             AppleDoubleFilesCleanerStatus.get_error_message(
@@ -87,6 +83,12 @@ def _move_apple_double_files(root_path: str, adfiles: tuple[str, ...],
         sys.exit(2)
 
         _mv_target = os.path.abspath(mv_target)
+
+    else:
+        mv_target = 'AppleDoubleFiles'
+        mv_target = mv_target + "-" + datetime.now().strftime(r"%Y-%m-%d-%H-%M-%S-%f")
+        _mv_target: str = os.path.join(root_path, mv_target)
+        
     
     if not os.path.exists(_mv_target):
         os.mkdir(_mv_target)
@@ -115,7 +117,7 @@ def apple_double_files_cleaner(dirpath: str,
     move_res: tuple[str, ...] | None  = None
 
     if not is_default_target and target != None:
-        move_res = _move_apple_double_files(dirpath, apple_double_files, is_default_target, target)
+        move_res = _move_apple_double_files(dirpath, apple_double_files, target)
     else:   
         move_res = _move_apple_double_files(dirpath, apple_double_files)
 
