@@ -1,10 +1,9 @@
-from types import CodeType
 import dis
 import sys
 import os
 
 
-def get_pys_bytes_object(fname: str) -> CodeType:
+def get_pys_bytes_object(fname: str) -> str:
     if not isinstance(fname, str) or fname == "" or \
         not os.path.isfile(fname):
         raise ValueError(f"The parameters is invalid in {__name__}")
