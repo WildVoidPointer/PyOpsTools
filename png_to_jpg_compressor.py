@@ -17,6 +17,7 @@ def img_scale_down_same_proportion(
     width, height = image.size
 
     aspect_ratio = width / height
+
     if width > height:
         new_width = target_width
         new_height = int(target_width / aspect_ratio)
@@ -31,9 +32,10 @@ def img_scale_down_same_proportion(
 
 def convert_and_resize_images(
     dirpath: str,
+    target_width: int = 1960,
+    target_height: int = 1507,
+    save_quality: int = 100,
     target_dirpath: str = "result",
-    target_width: int = 1280,
-    target_height: int = 960,
 ) -> None:
 
     if (
@@ -44,10 +46,10 @@ def convert_and_resize_images(
     ):
         raise ValueError("\033[31mParameters are invalid\033[0m")
 
-    _result_path: str = os.path.join(dirpath, target_dirpath)
+    result_path: str = os.path.join(dirpath, target_dirpath)
 
-    if not os.path.exists(_result_path):
-        os.mkdir(_result_path)
+    if not os.path.exists(result_path):
+        os.mkdir(result_path)
 
     for fname in os.listdir(dirpath):
         lower_fname = fname.lower()
@@ -60,9 +62,9 @@ def convert_and_resize_images(
             )
 
             new_fname = os.path.splitext(fname)[0] + ".jpg"
-            new_fpath = os.path.join(_result_path, new_fname)
+            new_fpath = os.path.join(result_path, new_fname)
 
-            img_resized.convert("RGB").save(new_fpath, "JPEG", quality=85)
+            img_resized.convert("RGB").save(new_fpath, "JPEG", quality=save_quality)
 
             img.close()
             img_resized.close()
@@ -70,5 +72,15 @@ def convert_and_resize_images(
 
 
 if __name__ == "__main__":
-    dirpath = sys.argv[1]
-    convert_and_resize_images(dirpath)
+    mode = sys.argv[1]
+    dirpath = sys.argv[2]
+
+    if (mode == "cover"):
+        convert_and_resize_images(dirpath, 1280, 960)
+    elif (mode == "show"):
+        convert_and_resize_images(dirpath)
+    else:
+        print("No valid option was specified")
+        exit(1)
+    print("Complete!")
+        
