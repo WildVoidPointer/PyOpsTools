@@ -1,9 +1,10 @@
-import os
-import glob
-from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
+from PIL import Image
 from pathlib import Path
 import shutil
+import glob
+import os
+
 
 
 def picture_exif_data_handle(image_path):
