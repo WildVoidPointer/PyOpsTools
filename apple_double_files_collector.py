@@ -107,7 +107,7 @@ def _move_apple_double_files(root_path: str, adfiles: tuple[str, ...],
         return tuple(_not_moved_files)
 
 
-def apple_double_files_cleaner(dirpath: str,
+def apple_double_files_collector(dirpath: str,
                                is_default_target: bool = True,
                                target: str | None = None
                             ) -> None:
@@ -146,4 +146,4 @@ if __name__ == "__main__":
         print("\033[31mUsage: python script.py <directory_path>. \033[0m")
         sys.exit(3)
     
-    apple_double_files_cleaner(sys.argv[1])
+    apple_double_files_collector(sys.argv[1])
