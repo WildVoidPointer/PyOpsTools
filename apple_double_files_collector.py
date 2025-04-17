@@ -59,11 +59,11 @@ def _collect_apple_double_files(path: str) -> tuple[str, ...]:
     return tuple(_apple_double_files)
 
 
-def _move_apple_double_files(root_path: str, adfiles: tuple[str, ...],
+def _move_apple_double_files(root_path: str, adfiles: Iterable[str],
                              is_default_target: bool = True,
                              mv_target: str = 'AppleDoubleFiles') -> tuple[str, ...] | None:
     
-    if not _is_effective_dirpath(root_path) or not isinstance(adfiles, tuple):
+    if not _is_effective_dirpath(root_path) or not isinstance(adfiles, Iterable):
         print(
             FilesCleanerStatus.get_error_message(
                 "The AppleDouble files cannot be moved. Make sure you pass in the correct parameters"
@@ -88,7 +88,7 @@ def _move_apple_double_files(root_path: str, adfiles: tuple[str, ...],
 
         _mv_target = os.path.abspath(mv_target)
     
-    if not os.path.exists(_mv_target):
+    if not os.path.exists(_mv_target) and len(adfiles) != 0:
         os.mkdir(_mv_target)
 
     _not_moved_files: list[str] = []
@@ -111,6 +111,7 @@ def apple_double_files_collector(dirpath: str,
                                is_default_target: bool = True,
                                target: str | None = None
                             ) -> None:
+    
     apple_double_files: tuple[str, ...] = _collect_apple_double_files(dirpath)
     move_res: tuple[str, ...] | None  = None
 
