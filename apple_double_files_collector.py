@@ -88,7 +88,7 @@ def _move_apple_double_files(root_path: str, adfiles: Iterable[str],
 
         _mv_target = os.path.abspath(mv_target)
     
-    if not os.path.exists(_mv_target) and len(adfiles) != 0:
+    if not os.path.exists(_mv_target) and len(tuple(adfiles)) != 0:
         os.mkdir(_mv_target)
 
     _not_moved_files: list[str] = []
