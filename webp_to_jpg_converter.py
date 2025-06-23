@@ -26,7 +26,7 @@ def convert_webp_to_jpg(input_folder, output_folder):
                 print(f"Failed to convert {webp_path}: {e}")
 
 if __name__ == "__main__":
-    input_folder = r"D:\Downloads\新建文件夹"
+    input_folder = r"D:\Downloads\Emojs"
     output_folder = "./output_jpg"  # Replace with your output folder path
 
     convert_webp_to_jpg(input_folder, output_folder)
