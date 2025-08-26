@@ -7,7 +7,7 @@ DEFAULT_EXCLUDED_FILE_EXT_LIST: list[str] = []
 
 DEFAULT_EXCLUDED_DIR_LIST: list[str] = [
     "venv",
-    ".git"
+    ".git",
 ]
 
 
@@ -88,7 +88,7 @@ def count_lines_in_directory(
 
                 print(
                     get_Info_logging_string(
-                        f"  [{rel_dir}/]: {current_dir_files} files, {current_dir_files} lines"
+                        f"[{rel_dir}/]: {current_dir_files} files"
                     )
                 )
                 print("-" * 40)
