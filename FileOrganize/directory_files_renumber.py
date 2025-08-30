@@ -71,10 +71,11 @@ def rename_files_in_directory(directory_path: str) -> int:
         old_path = os.path.join(directory_path, filename)
         new_path = os.path.join(directory_path, new_filename)
         
+        counter: int = 2
         # Skip if new filename already exists
-        if os.path.exists(new_path):
+        while os.path.exists(new_path):
             print(get_Info_logging_string(f"Warning: Target file '{new_filename}' already exists. Skipping."))
-            new_path += "(2)"
+            new_path += f"{counter}"
         
         # Rename file
         try:

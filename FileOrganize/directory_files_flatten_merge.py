@@ -65,7 +65,6 @@ def flatten_directory(directory: str) -> bool:
                 
                 # Handle filename conflicts
                 counter: int = 1
-                base_target_file: str = target_file
                 while os.path.exists(target_file):
                     name, ext = os.path.splitext(file)
                     target_file = os.path.join(directory, f"{name}_{counter}{ext}")
