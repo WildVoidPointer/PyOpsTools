@@ -3,24 +3,29 @@ import os
 import sys
 
 
-DEFAULT_EXCLUDED_FILE_EXT_LIST: list[str] = []
+DEFAULT_EXCLUDED_FILE_EXT_LIST: list[str] = [
+    "zip",
+    "jpg",
+    "png",
+    "out",
+    "exe",
+    "json",
+    "jpeg",
+]
+
 
 DEFAULT_EXCLUDED_DIR_LIST: list[str] = [
     "venv",
+    ".venv",
+    ".idea",
     ".git",
+    "OpenProjects",
+    "__pycache__"
 ]
 
 
 def get_Info_logging_string(content: str) -> str:
     return f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - RUNTIME_INFO - {content}"
-
-
-def get_excluded_dirs_abs_paths(base_dir: str, rel_exclude_dirs: list[str]) -> list[str]:
-    excluded_abs_paths: list[str] = []
-    for rel_dir in rel_exclude_dirs:
-        abs_path = os.path.abspath(os.path.join(base_dir, rel_dir))
-        excluded_abs_paths.append(abs_path)
-    return excluded_abs_paths
 
 
 def count_lines_in_file(file_path: str) -> int:
@@ -57,10 +62,8 @@ def count_lines_in_directory(
     file_count: int = 0
     dir_count: int = 0
     
-    excluded_dirs: list[str] = get_excluded_dirs_abs_paths(dir_path, rel_exclude_dirs)
-    
     for root, dirs, files in os.walk(dir_path):
-        dirs[:] = [ d for d in dirs if os.path.abspath(os.path.join(root, d)) not in excluded_dirs ]
+        dirs[:] = [ d for d in dirs if d not in rel_exclude_dirs ]
         
         current_dir_lines: int = 0
         current_dir_files: int = 0
