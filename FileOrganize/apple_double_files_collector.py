@@ -16,10 +16,10 @@ class FilesCleanerLogger:
         return f"{datetime.now()} - INFO: \033[33m{count}\033[0m files have been scanned."
     
     @staticmethod
-    def get_op_result_message(op_s_count: int = 0, op_f_count: int = 0) -> str:
+    def get_op_result_message(moved_count: int = 0, rename_count: int = 0) -> str:
         return (
-            f"{datetime.now()} - INFO: \033[32m{op_s_count}\033[0m files were moved successfully.\n"
-            f"{datetime.now()} - INFO: \033[31m{op_f_count}\033[0m files failed to be moved."
+            f"{datetime.now()} - INFO: \033[32m{moved_count}\033[0m files were moved successfully.\n"
+            f"{datetime.now()} - INFO: \033[31m{rename_count}\033[0m files were renamed."
         )
     
     @staticmethod
@@ -41,6 +41,7 @@ def is_apple_double_file(fname: str) -> bool:
 
 
 def capture_apple_double_files(path: str) -> tuple[str, ...]:
+
     if not _is_effective_dirpath(path=path):
         print(
             FilesCleanerLogger.get_error_message(
@@ -52,21 +53,25 @@ def capture_apple_double_files(path: str) -> tuple[str, ...]:
     abspath = os.path.abspath(path)
 
     apple_double_files: list[str] = []
+
     for dirpath, _, files in os.walk(abspath):
         for file in files:
             if is_apple_double_file(file):
                 apple_double_files.append(os.path.join(dirpath, file))
+
     return tuple(apple_double_files)
 
 
-def collect_apple_double_files(root_path: str, adfiles: Iterable[str],
-                            is_default_target: bool = True,
-                            target: str = 'AppleDoubleFiles') -> tuple[str, ...] | None:
+def move_apple_double_files(
+    root_path: str, adfiles: Iterable[str], is_default_target: bool = True,
+    target: str = 'AppleDoubleFiles'
+) -> tuple[str, ...] | None:
     
     if not _is_effective_dirpath(root_path) or not isinstance(adfiles, Iterable):
         print(
             FilesCleanerLogger.get_error_message(
-                "The AppleDouble files cannot be moved. Make sure you pass in the correct parameters"
+                "The AppleDouble files cannot be moved. \
+                Make sure you pass in the correct parameters"
             )
         )
         sys.exit(2)
@@ -81,7 +86,8 @@ def collect_apple_double_files(root_path: str, adfiles: Iterable[str],
         if not _is_effective_dirpath(target):
             print(
                 FilesCleanerLogger.get_error_message(
-                    "The AppleDouble files cannot be moved. Make sure you pass in the correct parameters"
+                    "The AppleDouble files cannot be moved. \
+                    Make sure you pass in the correct parameters"
                 )
             )
             sys.exit(2)
@@ -91,52 +97,63 @@ def collect_apple_double_files(root_path: str, adfiles: Iterable[str],
     if not os.path.exists(collect_space) and len(tuple(adfiles)) != 0:
         os.mkdir(collect_space)
 
-    not_moved_files: list[str] = []
+    renamed_files: list[str] = []
+
+    new_name_tag: str = "same"
+
+    new_name_count: int = 1
     
     for file in adfiles:
         fname: str = os.path.basename(file)
 
         if os.path.exists(os.path.join(collect_space, fname)):
-            not_moved_files.append(file)
-        else:
-            shutil.move(file, collect_space)
+            new_name: str = os.path.join(
+                os.path.dirname(file), 
+                "-" + fname + "-" + new_name_tag + str(new_name_count)
+            )
+            os.rename(file, new_name)
+            file = new_name
+            new_name_count += 1
+        
+        shutil.move(file, collect_space)
     
-    if len(not_moved_files) == 0:
+    if len(renamed_files) == 0:
         return None
     else:
-        return tuple(not_moved_files)
+        return tuple(renamed_files)
 
 
-def apple_double_files_collector(dirpath: str, is_default_target: bool = True,
-                               target: str | None = None) -> None:
+def apple_double_files_collector(
+    dirpath: str, is_default_target: bool = True, target: str | None = None
+) -> None:
     
     apple_double_files: tuple[str, ...] = capture_apple_double_files(dirpath)
-    move_res: tuple[str, ...] | None  = None
+    renamed_list: tuple[str, ...] | None  = None
 
     if not is_default_target and target != None:
-        move_res = collect_apple_double_files(dirpath, apple_double_files, is_default_target, target)
+        renamed_list = move_apple_double_files(dirpath, apple_double_files, is_default_target, target)
     else:   
-        move_res = collect_apple_double_files(dirpath, apple_double_files)
+        renamed_list = move_apple_double_files(dirpath, apple_double_files)
 
-    _all_file_num: int = len(apple_double_files)
+    all_file_num: int = len(apple_double_files)
 
-    if move_res is not None:
-        _op_f_num: int = len(move_res)
-        _op_s_num: int = _all_file_num - _op_f_num
+    if renamed_list is not None:
+        not_moved_num: int = len(renamed_list)
+        moved_num: int = all_file_num - not_moved_num
     else:
-        _op_s_num = _all_file_num
-        _op_f_num = 0
+        moved_num = all_file_num
+        not_moved_num = 0
     
     print(
-        FilesCleanerLogger.get_files_counter_message(_all_file_num)
+        FilesCleanerLogger.get_files_counter_message(all_file_num)
     )
 
     print(
-        FilesCleanerLogger.get_op_result_message(_op_s_num, _op_f_num)
+        FilesCleanerLogger.get_op_result_message(moved_num, not_moved_num)
     )
 
-    if move_res is not None:
-        FilesCleanerLogger.get_moved_failed_files(move_res)
+    if renamed_list is not None:
+        FilesCleanerLogger.get_moved_failed_files(renamed_list)
 
 
 if __name__ == "__main__":
