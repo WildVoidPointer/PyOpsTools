@@ -7,13 +7,16 @@ import os
 
 class FilesCleanerLogger:
     """Provides a series of static methods to highlight run-time status with simple logs"""
+
     @staticmethod
     def get_error_message(location: str = "") -> str:
         return f"\033[31m{datetime.now()} - ERROR: {location} \033[0m"
     
+    
     @staticmethod
     def get_files_counter_message(count: int = 0) -> str:
         return f"{datetime.now()} - INFO: \033[33m{count}\033[0m files have been scanned."
+    
     
     @staticmethod
     def get_op_result_message(moved_count: int = 0, rename_count: int = 0) -> str:
@@ -21,6 +24,7 @@ class FilesCleanerLogger:
             f"{datetime.now()} - INFO: \033[32m{moved_count}\033[0m files were moved successfully.\n"
             f"{datetime.now()} - INFO: \033[31m{rename_count}\033[0m files were renamed."
         )
+    
     
     @staticmethod
     def get_moved_failed_files(files: Iterable[str]) -> None:
@@ -37,7 +41,7 @@ def _is_effective_dirpath(path: str) -> bool:
 
 
 def is_apple_double_file(fname: str) -> bool:
-    return fname.startswith("._")
+    return fname.startswith("._") or fname == ".DS_Store"
 
 
 def capture_apple_double_files(path: str) -> tuple[str, ...]:
@@ -131,7 +135,10 @@ def apple_double_files_collector(
     renamed_list: tuple[str, ...] | None  = None
 
     if not is_default_target and target != None:
-        renamed_list = move_apple_double_files(dirpath, apple_double_files, is_default_target, target)
+        renamed_list = move_apple_double_files(
+            dirpath, apple_double_files, 
+            is_default_target, target
+        )
     else:   
         renamed_list = move_apple_double_files(dirpath, apple_double_files)
 
