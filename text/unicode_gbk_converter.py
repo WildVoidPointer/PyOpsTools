@@ -9,7 +9,8 @@ def convert_text_file_encoding(
     if not isinstance(text_file, str) or text_file == "" or \
         not os.path.isfile(os.path.abspath(text_file)):
         print(
-            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR: The text file path parameter error"
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - "
+            "ERROR: The text file path parameter error"
         )
         return
 
