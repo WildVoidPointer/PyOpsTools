@@ -1,233 +1,249 @@
+#!/usr/bin/env python3
+"""Filename Obfuscator
+Recursively obfuscates file names in a specified directory by renaming them to 
+their hash values (with original extensions preserved).
+The hash is generated based on the original filename and a random salt
+"""
+
+from enum import StrEnum, IntEnum
 from datetime import datetime
 from typing import Optional
+from pathlib import Path
+import argparse
 import hashlib
 import secrets
 import time
 import sys
-import os
 
 
-class FnameToHashRuntimeStatus:
-    """Provides a series of static methods to highlight run-time status with simple logs"""
+class FilenameObfuscatorUtils:
+    class LoggingLevel(StrEnum):
+        INFO = "INFO"
+        WARNING = "WARNING"
+        ERROR = "ERROR"
+
     @staticmethod
-    def get_error_message(location: str = "") -> str:
-        return f"\033[31m{datetime.now()} - ERROR: {location} \033[0m"
-    
-    @staticmethod
-    def get_files_counter_message(count: int = 0) -> str:
-        return f"{datetime.now()} - INFO: \033[33m{count}\033[0m files have been scanned."
-    
-    @staticmethod
-    def get_op_result_message(op_s_count: int = 0, op_f_count: int = 0) -> str:
-        return (
-            f"{datetime.now()} - INFO: \033[32m{op_s_count}\033[0m files were renamed successfully.\n"
-            f"{datetime.now()} - INFO: \033[31m{op_f_count}\033[0m files failed to be renamed."
+    def logging_println(level: LoggingLevel, message: str) -> None:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"{timestamp} - [{level}] - {message}")
+
+
+class ObfuscatorExitCode(IntEnum):
+    """程序退出码"""
+    SUCCESS = 0
+    INVALID_DIRECTORY = 1
+    PARTIAL_FAILURE = 2
+    NO_FILES_PROCESSED = 3
+
+
+class FilenamesObfuscator:
+    """批量重命名文件为哈希值（基于文件名+随机盐）的执行器"""
+
+    def __init__(self, root: Path, ignore_hidden: bool = False):
+        """
+        初始化重命名器
+
+        Args:
+            root: 要处理的根目录（Path 对象）
+            ignore_hidden: 是否忽略隐藏文件（文件名以点开头）
+        """
+        self.root = root.resolve()
+        self.ignore_hidden = ignore_hidden
+        self.files: list[Path] = []
+
+    def _get_random_salt(self) -> str:
+        """生成16字节随机盐（十六进制字符串）"""
+        return secrets.token_hex(16)
+
+    def _generate_hashcode(
+        self, filename: str, salt: str, hash_type: str = 'sha1'
+    ) -> Optional[str]:
+        """
+        仅依据文件名和随机盐生成哈希值（不再抛出异常）
+
+        Args:
+            filename: 原始文件名（含扩展名）
+            salt: 随机盐字符串
+            hash_type: 哈希算法（默认 sha1）
+
+        Returns:
+            成功返回哈希值的十六进制字符串，失败返回 None
+        """
+        if not filename or not salt:
+            FilenameObfuscatorUtils.logging_println(
+                FilenameObfuscatorUtils.LoggingLevel.ERROR,
+                "Filename and salt must be non-empty strings "
+                f"(filename='{filename}', salt='{salt}')"
+            )
+            return None
+
+        content = filename + salt
+        try:
+            hasher = hashlib.new(hash_type)
+            hasher.update(content.encode('utf-8'))
+            return hasher.hexdigest().lower()
+        except ValueError:
+            FilenameObfuscatorUtils.logging_println(
+                FilenameObfuscatorUtils.LoggingLevel.ERROR,
+                f"Unsupported hash type: {hash_type}"
+            )
+            return None
+
+    def _rename_file(self, file_path: Path, hashcode: str) -> bool:
+        """
+        将文件重命名为哈希值 + 原扩展名
+
+        Args:
+            file_path: 原始文件 Path 对象
+            hashcode: 哈希值字符串
+
+        Returns:
+            重命名成功返回 True，否则 False
+        """
+        parent = file_path.parent
+        ext = file_path.suffix
+        new_name = hashcode + ext
+        new_path = parent / new_name
+
+        if new_path.exists():
+            FilenameObfuscatorUtils.logging_println(
+                FilenameObfuscatorUtils.LoggingLevel.WARNING,
+                f"Target file already exists, skip rename: {new_path}"
+            )
+            return False
+
+        try:
+            file_path.rename(new_path)
+            return True
+        except OSError as e:
+            FilenameObfuscatorUtils.logging_println(
+                FilenameObfuscatorUtils.LoggingLevel.ERROR,
+                f"Rename failed for {file_path}: {e}"
+            )
+            return False
+
+    def scan_files(self) -> None:
+        """
+        扫描根目录下所有文件，并根据 ignore_hidden 过滤隐藏文件。
+        结果存储在 self.files 列表中。
+        """
+        self.files.clear()
+        for item in self.root.rglob('*'):
+            if item.is_file():
+                if self.ignore_hidden and item.name.startswith('.'):
+                    continue
+                self.files.append(item)
+
+        FilenameObfuscatorUtils.logging_println(
+            FilenameObfuscatorUtils.LoggingLevel.INFO,
+            f"Scanned {len(self.files)} files (ignored hidden: {self.ignore_hidden})"
         )
 
-    @staticmethod
-    def get_rename_failed_files(files: tuple[str, ...]) -> None:
-        if not isinstance(files, tuple) or len(files) == 0:
-            return
-        print("\033[31mRenameFailedList:\033[0m")
-        for file in files:
-            print(f"    {file}")
+    def execute_rename(self) -> tuple[int, int, list[Path]]:
+        """
+        执行批量重命名操作
 
+        Returns:
+            元组 (总文件数, 成功数, 失败文件列表)
+        """
+        if not self.files:
+            FilenameObfuscatorUtils.logging_println(
+                FilenameObfuscatorUtils.LoggingLevel.WARNING,
+                "No files to process."
+            )
+            return 0, 0, []
 
-def get_all_files_to_tuple(dirpath: str) -> tuple[str, ...]:
-    """Extract all files from the specified path.
+        success_count = 0
+        failure_files: list[Path] = []
 
-    Args:
-        dirpath: A string indicating the path of a directory
+        for file_path in self.files:
+            salt = self._get_random_salt()
+            hashcode = self._generate_hashcode(file_path.name, salt)
+            if hashcode is None:
+                FilenameObfuscatorUtils.logging_println(
+                    FilenameObfuscatorUtils.LoggingLevel.ERROR,
+                    f"Hash generation failed for {file_path.name}"
+                )
+                failure_files.append(file_path)
+                continue
 
-    Returns:
-        Returns a tuple of all files
-    
-    Raises:
-        Raises `ValueError` if the passed argument is invalid
-    """
-    if not is_effective_string(dirpath) or not os.path.isdir(dirpath) or \
-        not os.access(dirpath, os.X_OK | os.R_OK | os.W_OK):
-        raise ValueError(f"The method {__name__} parameter is invalid")
-    
-    files_list: list[str] = []
-    for dirpath, _, filenames in os.walk(dirpath):
-        for filename in filenames:
-            filepath = os.path.join(dirpath, filename)
-            absolute_path = os.path.abspath(filepath)
-            files_list.append(absolute_path)
-    return tuple(files_list)
-
-
-def is_effective_string(string: str) -> bool:
-    """Determine string validity"""
-    return isinstance(string, str) and string != ""
-
-
-def get_current_timestamp() -> str:
-    """Get the current time string in the format of `%Y-%m-%d %H:%M:%S.%f`
-
-    Args:
-        None
-    
-    Returns:
-        Return a string in the format of %Y-%m-%d %H:%M:%S.%f
-    
-    Raises:
-        None
-    """
-    return datetime.now().strftime(r"%Y-%m-%d %H:%M:%S.%f")
-
-
-def get_current_random_salt() -> str:
-    """Get random string of 16 length by secrets-lib
-
-    Args:
-        None
-    
-    Returns:
-        Returns a random string of 16 length
-    
-    Raises:
-        None
-    """
-    return secrets.token_hex(nbytes=16)
-
-
-def get_current_file_hashcode(
-        fpath: str, timestamp: str, random_salt: str, hash_type: str = 'sha1'
-        ) -> str:
-    """Generate and return a hash string with the file path, timestamp, and random salt
-
-    Args:
-        fpath: A valid file path.
-        timestamp: A time string in the format of %Y-%m-%d %H:%M:%S.%f
-        random_salt: a random string
-        hash_type: A hash encryption type
-    
-    Returns:
-        Returns a hashcode string of 40 length (sha1)
-    
-    Raises:
-        Raises `ValueError` if the passed argument is invalid or 
-        the hash encryption type is not supported
-    """
-    
-    if (
-        not is_effective_string(fpath) or not is_effective_string(timestamp) or 
-        not is_effective_string(random_salt) or not is_effective_string(hash_type) or
-        not os.path.isfile(fpath)
-        ):
-        raise ValueError(f"The method {__name__} parameter is invalid")
-    
-    file_hash = hashlib.new(hash_type)
-    chunk_data = fpath + timestamp + random_salt
-    file_hash.update(chunk_data.encode('utf-8'))
-    return file_hash.hexdigest().lower()
-
-
-def set_filename_to_hashcode(fpath: str, hashcode: str) -> bool:
-    """Set the file name to the hashcode passed in.
-
-    Args:
-        fpath: A valid file path.
-        hashcode: A vaild string
-    
-    Returns:
-        Returns a Boolean value indicating execution
-    
-    Raises:
-        None 
-    """
-
-    if (
-        not is_effective_string(fpath) or not os.path.isfile(fpath) 
-        or not is_effective_string(hashcode)
-        ):
-
-        return False
-    
-    _fpath, _fname = os.path.split(fpath)
-    new_fname: str = hashcode + os.path.splitext(_fname)[1]
-    new_fpath = os.path.join(_fpath, new_fname)
-
-    if os.path.exists(new_fpath):
-        return False
-    
-    try:
-        os.rename(fpath, new_fpath)
-    except OSError as e:
-        print(FnameToHashRuntimeStatus.get_error_message(str(e)))
-        return False
-
-    return True
-
-
-def rename_operation_executor(dirpath: str) -> tuple[int, int, int, tuple[str, ...]]:
-    """Batch file renaming is performed.
-
-    Args:
-        dirpath: A string indicating the path of a directory.
-    
-    Returns:
-        Returns a tuple of 4, in order, the number of scanned files,
-        the number of successful operations, the number of failed operations, 
-        and the sequence of failed operations.
-    
-    Raises:
-        None
-    """
-    if not is_effective_string(dirpath) or not os.path.isdir(dirpath):
-
-        print(
-            FnameToHashRuntimeStatus.get_error_message(f"The method {__name__} parameter is invalid")
-        )
-        return 0, 0, 0, tuple()
-    
-    fpaths: Optional[tuple[str, ...]] = None
-    try: 
-        fpaths = get_all_files_to_tuple(dirpath)
-    except ValueError as e:
-        print(FnameToHashRuntimeStatus.get_error_message(str(e)))
-        sys.exit(1)
-
-    op_success_count: int = 0
-    op_failure_count: int = 0
-    op_failure_files: list[str] = []
-
-    for path in fpaths:
-        _current_timestamp = get_current_timestamp()
-        _current_salt = get_current_random_salt()
-
-        _current_fhash = get_current_file_hashcode(
-            fpath=path, timestamp=_current_timestamp, random_salt=_current_salt
-        )
-
-        try: 
-            _rename_flag: bool = set_filename_to_hashcode(path, _current_fhash)
-            if _rename_flag:
-                op_success_count += 1
+            if self._rename_file(file_path, hashcode):
+                success_count += 1
             else:
-                op_failure_count += 1
-                op_failure_files.append(path)
-        except ValueError as e:
-            op_failure_count += 1
-            op_failure_files.append(path)
-            print(FnameToHashRuntimeStatus.get_error_message(str(e)))
-    return len(fpaths), op_success_count, op_failure_count, tuple(op_failure_files)
+                failure_files.append(file_path)
+
+        return len(self.files), success_count, failure_files
+
+
+def parse_arguments() -> argparse.Namespace:
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(
+        description="Batch rename files to hash values "
+        "based on original filename and random salt."
+    )
+    parser.add_argument("directory", type=str, help="Root directory to process")
+    parser.add_argument(
+        "--ignore-hidden", 
+        action="store_true",
+        help="Ignore hidden files (those whose name starts with a dot)"
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_arguments()
+
+    root = Path(args.directory)
+    if not root.is_dir():
+        FilenameObfuscatorUtils.logging_println(
+            FilenameObfuscatorUtils.LoggingLevel.ERROR,
+            f"Provided path is not a valid directory: {args.directory}"
+        )
+        sys.exit(ObfuscatorExitCode.INVALID_DIRECTORY)
+
+    start_time = time.time()
+
+    obfuscator = FilenamesObfuscator(root=root, ignore_hidden=args.ignore_hidden)
+    obfuscator.scan_files()
+    total, success, failures = obfuscator.execute_rename()
+
+    # 输出统计信息
+    FilenameObfuscatorUtils.logging_println(
+        FilenameObfuscatorUtils.LoggingLevel.INFO,
+        f"Total files scanned: {total}"
+    )
+    FilenameObfuscatorUtils.logging_println(
+        FilenameObfuscatorUtils.LoggingLevel.INFO,
+        f"Successful renames: {success}, Failed: {len(failures)}"
+    )
+    if failures:
+        FilenameObfuscatorUtils.logging_println(
+            FilenameObfuscatorUtils.LoggingLevel.WARNING,
+            "Failed files:"
+        )
+        for f in failures:
+            FilenameObfuscatorUtils.logging_println(
+                FilenameObfuscatorUtils.LoggingLevel.WARNING,
+                f"  {f}"
+            )
+
+    elapsed = time.time() - start_time
+    FilenameObfuscatorUtils.logging_println(
+        FilenameObfuscatorUtils.LoggingLevel.INFO,
+        f"Running time: {elapsed:.3f}s"
+    )
+    FilenameObfuscatorUtils.logging_println(
+        FilenameObfuscatorUtils.LoggingLevel.INFO,
+        "Complete!"
+    )
+
+    if total == 0:
+        sys.exit(ObfuscatorExitCode.NO_FILES_PROCESSED)
+    elif len(failures) > 0:
+        sys.exit(ObfuscatorExitCode.PARTIAL_FAILURE)
+    else:
+        sys.exit(ObfuscatorExitCode.SUCCESS)
 
 
 if __name__ == "__main__":
-
-    if len(sys.argv) < 2:
-        print("\033[31mUsage: python script.py <directory_path>. \033[0m")
-        sys.exit(1)
-
-    start_time: float = time.time()
-    dirpath: str = sys.argv[1]
-    
-    _scan_fcount, _op_s, _op_f, _op_f_files = rename_operation_executor(dirpath=dirpath)
-    print(FnameToHashRuntimeStatus.get_files_counter_message(_scan_fcount))
-    print(FnameToHashRuntimeStatus.get_op_result_message(_op_s, _op_f))
-    FnameToHashRuntimeStatus.get_rename_failed_files(_op_f_files)
-    print(f"Running time: \033[33m{time.time()-start_time}\033[0ms")
-    print(f"\033[32mComplete !\n\033[0m")
+    main()

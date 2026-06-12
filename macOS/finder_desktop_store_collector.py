@@ -96,7 +96,11 @@ class AppleDesktopFilesCollector:
         每个文件都加上前缀 'ADF'，如果冲突则使用 'ADF(1)'、'ADF(2)' 等编号。
         """
         if self.dest_dir is None:
-            raise RuntimeError("Destination directory not prepared")
+            ADFCollectorUtils.logging_println(
+                ADFCollectorUtils.LoggingLevel.ERROR,
+                "Destination directory is not set"
+            )
+            sys.exit(ADFCollectorExitCode.INVALID_DIRECTORY)
 
         base_name = f"{self.PREFIX}{filename}"
         candidate = self.dest_dir / base_name
